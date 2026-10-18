@@ -106,16 +106,42 @@ fi
 # webterminal (TERMINAL_PASSWORD in .env). Bron, in volgorde:
 #   1. state/wifi_psk (al aanwezig)
 #   2. /boot/firmware/turtlebot_wifi_psk - na het flashen/klonen van een kaart
-#      op de laptop aanmaken (één regel: het wachtwoord); wordt verplaatst
+#      op de laptop aanmaken (sdclone.sh write). Twee vormen:
+#        - één regel: het wachtwoord van deze robot;
+#        - een lijst voor alle robots, één regel per robot: <nr>=<wachtwoord>
+#          (bv. 6=...; spaties rond "=" en op het einde tellen niet); de
+#          robot neemt de regel met zijn eigen nummer.
+#          Zo werkt één kaart in gelijk welke robot.
+#      Het bestand wordt altijd overschreven en gewist (geen wachtwoorden
+#      van andere robots op deze robot).
 #   3. het bestaande wifi-profiel TB-AP-<nr> van deze robot
 AP_NAME="TB-AP-$NR2"
 PSK_FILE="$SETUP_DIR/state/wifi_psk"
 BOOT_PSK=/boot/firmware/turtlebot_wifi_psk
 mkdir -p "$SETUP_DIR/state"
 if [ -s "$BOOT_PSK" ]; then
-  tr -d '\r\n' < "$BOOT_PSK" > "$PSK_FILE" && rm -f "$BOOT_PSK" \
-    && echo "🔑 Wifi-wachtwoord overgenomen uit $BOOT_PSK"
-elif [ ! -s "$PSK_FILE" ] && nmcli -t -f NAME connection show | grep -qx "$AP_NAME"; then
+  if grep -qE '^[[:space:]]*[0-9]+[[:space:]]*=' "$BOOT_PSK"; then
+    # Lijst: regel "<nr>=<wachtwoord>" van deze robot (01 = 1)
+    BOOT_VAL=$(tr -d '\r' < "$BOOT_PSK" | awk -v nr="$NR" '
+      match($0, /^[[:space:]]*[0-9]+[[:space:]]*=[[:space:]]*/) {
+        n = substr($0, 1, index($0, "=") - 1); gsub(/[[:space:]]/, "", n)
+        v = substr($0, RLENGTH + 1); sub(/[[:space:]]+$/, "", v)
+        if (n + 0 == nr + 0) { print v; exit }
+      }')
+    BOOT_SRC="de lijst in $BOOT_PSK (regel $NR)"
+  else
+    BOOT_VAL=$(head -n 1 "$BOOT_PSK" | tr -d '\r\n')
+    BOOT_SRC="$BOOT_PSK"
+  fi
+  shred -u "$BOOT_PSK" 2>/dev/null || rm -f "$BOOT_PSK"
+  if [ -n "$BOOT_VAL" ]; then
+    (umask 077; printf '%s' "$BOOT_VAL" > "$PSK_FILE") && echo "🔑 Wifi-wachtwoord overgenomen uit $BOOT_SRC"
+  else
+    echo "⚠️ Geen wachtwoord voor robot $NR in $BOOT_PSK (bestand gewist)"
+  fi
+  unset BOOT_VAL
+fi
+if [ ! -s "$PSK_FILE" ] && nmcli -t -f NAME connection show | grep -qx "$AP_NAME"; then
   nmcli -s -g 802-11-wireless-security.psk connection show "$AP_NAME" 2>/dev/null \
     | tr -d '\r\n' > "$PSK_FILE"
   [ -s "$PSK_FILE" ] && echo "🔑 Wifi-wachtwoord overgenomen uit het profiel $AP_NAME"
