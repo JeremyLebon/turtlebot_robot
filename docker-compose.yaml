@@ -1,0 +1,79 @@
+services:
+  turtlebot-core:
+    # Come back up after a reboot / crash / network switch. Background
+    # services (Zenoh, status page, ...) start from the image's entrypoint
+    # (services_start.sh), so a restarted container is fully functional.
+    restart: unless-stopped
+    image: nobel86/turtlebot-rpi5:raspios-zenoh  # Combined RPi OS + Zenoh test image - keep :latest/:raspios/:zenoh untouched until validated
+    network_mode: host
+    stdin_open: true
+    tty: true  
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=${XAUTH}
+      - RMW_IMPLEMENTATION=rmw_zenoh_cpp
+      # Fallback middleware, kept for reference / easy rollback:
+      #   RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - CYCLONEDDS_URI=file:///root/turtlebot3_ws/cylconedds_config.xml
+      # Zenoh router (started via zenoh_start_router.sh in the image) listens
+      # on tcp/0.0.0.0:7447. network_mode: host already exposes it on the
+      # robot's IP (e.g. its AP address 10.42.0.1) - no extra ports: needed.
+      - LDS_MODEL=${LDS_MODEL}
+      - TURTLEBOT3_MODEL=burger
+      - TURTLEBOT3_NAME=TB3_${TURTLEBOT_NR}
+      - TURTLEBOT_NR=${TURTLEBOT_NR}
+      # Webterminal (ttyd, terminal_start.sh): zelfde wachtwoord als de wifi
+      # van deze robot, uit state/wifi_psk via .env (niet in git).
+      - TERMINAL_PASSWORD=${TERMINAL_PASSWORD:-}
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      # Not every turtlebot has a CSI camera attached at all times - set to
+      # "true" only on robots with a camera physically connected (see
+      # camera_start.sh). Attempting to start camera_node without a camera
+      # just crashes with "no cameras available". Set per-robot via .env or
+      # turtlebot_config.csv (see setup_turtlebot.sh).
+      - ENABLE_CAMERA=${ENABLE_CAMERA:-false}
+      # Fleet monitor (monitor/monitor.py op de laptop van de docent):
+      # system_info_node stuurt er elke 5 s de status naartoe. Uit monitor.conf
+      # via setup_turtlebot.sh -> .env; leeg = niets versturen.
+      - MONITOR_URL=${MONITOR_URL:-}
+
+    container_name: turtlebot_${TURTLEBOT_NR}
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Required for libcamera/camera_ros: libcamera enumerates cameras via
+      # libudev, reading the host's udev database (/run/udev/data/*), not
+      # just the raw /dev nodes. Without this mount, camera_ros fails with
+      # "Unable to acquire a CFE instance" / "no cameras available" even
+      # though /dev/media*, /dev/video* are otherwise accessible (privileged
+      # mode does not bind-mount /run/udev automatically).
+      - /run/udev:/run/udev:ro
+      # Host system D-Bus: lets launch_control_node reboot / power off the
+      # Pi through logind (status page buttons) without sudo or SSH.
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+      # State that must survive updates/recreating the container, e.g. the
+      # camera on/off choice from the status page (camera_enabled).
+      - ./state:/root/turtlebot_state
+      # Werkmap van de studenten (colcon-workspace ros2_ws, zelfde naam als in turtlebot_vis): overleeft updates en het
+      # opnieuw aanmaken van de container. Op de host: ~/turtlebot_setup/ros2_ws
+      - ./ros2_ws:/root/ros2_ws
+      # Joystick (Logitech F710): heel /dev/input i.p.v. enkel /dev/input/js0
+      # onder devices:, zodat een ontvanger die na de containerstart wordt
+      # ingestoken ook zichtbaar is (privileged geeft anders enkel een kopie
+      # van /dev bij de start) - en de container start ook zonder ontvanger.
+      - /dev/input:/dev/input
+    command: bash
+    devices:
+      # OpenCR (/dev/ttyACM0) en lidar (/dev/ttyUSB0) bewust NIET hier:
+      # in spaarstand staat de USB-stroom uit (usb_power in de image) en dan
+      # bestaan ze niet - een ontbrekend toestel onder devices: laat de
+      # container niet starten. privileged geeft toegang tot alle toestellen;
+      # usb_power maakt de /dev-nodes aan als ze pas na de start verschijnen.
+      - /dev/i2c-1:/dev/i2c-1  # I2C bus (RPi5, Raspberry Pi OS)
+      # CSI camera (libcamera/camera_ros) replaces the old USB webcam
+      # (/dev/video0). libcamera on RPi5 exposes several /dev/video* and
+      # /dev/media* nodes - already covered by privileged:true above, kept
+      # here only as documentation. Verify exact nodes on real hardware.

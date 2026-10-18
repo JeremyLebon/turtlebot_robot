@@ -1,0 +1,10 @@
+nr,mac,hostname,ros_domain_id,lidar,camera
+1,88:A2:9E:2C:D6:D6,turtlebot01,1,LDS-01,false
+2,88:A2:9E:2C:D5:70,turtlebot02,2,LDS-01,false
+3,2C:CF:67:75:70:6F,turtlebot03,3,LDS-01,false
+4,88:A2:9E:2C:ED:33,turtlebot04,4,LDS-02,false
+5,88:A2:9E:2C:D3:8A,turtlebot05,5,LDS-02,false
+6,88:A2:9E:2C:D8:25,turtlebot06,6,LDS-02,false
+7,88:A2:9E:2C:D5:07,turtlebot07,7,LDS-02,false
+8,88:A2:9E:2C:D6:67,turtlebot08,8,LDS-02,false
+9,88:A2:9E:2C:EA:4D,turtlebot09,9,LDS-02,true

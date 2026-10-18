@@ -1,0 +1,13 @@
+[Unit]
+Description=Turtlebot rollback: terug naar de image van voor de laatste update (:vorige)
+# Gestart vanaf de statuspagina (launch_control_node -> systemd via D-Bus)
+# of met de hand: sudo systemctl restart turtlebot-rollback
+# Werkt zonder internet. Log: journalctl -u turtlebot-rollback
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/turtlebot/turtlebot_setup/rollback_turtlebot.sh
+# Enkel omtaggen + container opnieuw aanmaken: ruim binnen 5 min
+TimeoutStartSec=5min
+RemainAfterExit=yes

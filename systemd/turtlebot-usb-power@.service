@@ -1,0 +1,8 @@
+[Unit]
+Description=Turtlebot USB-stroom %i (lidar-spaarstand)
+# Gestart door usb_power / launch_control_node in de container (systemd via
+# D-Bus), of met de hand: sudo systemctl start turtlebot-usb-power@off
+
+[Service]
+Type=oneshot
+ExecStart=/home/turtlebot/turtlebot_setup/usb_power_host.sh %i

@@ -1,0 +1,9 @@
+// /etc/polkit-1/rules.d/50-turtlebot-networkmanager.rules
+// Leden van de groep netdev (o.a. de user turtlebot) mogen NetworkManager
+// bedienen zonder sudo, ook over SSH (geen "actieve" lokale sessie).
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") == 0 &&
+        subject.isInGroup("netdev")) {
+        return polkit.Result.YES;
+    }
+});

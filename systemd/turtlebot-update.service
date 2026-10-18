@@ -1,0 +1,18 @@
+[Unit]
+Description=Turtlebot update: git pull of turtlebot_setup + docker compose pull/up
+# Gestart vanaf de statuspagina (launch_control_node -> systemd via D-Bus)
+# of met de hand: sudo systemctl restart turtlebot-update
+# Draait op de host, dus het opnieuw aanmaken van de container onderbreekt
+# de update niet. Log: journalctl -u turtlebot-update
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/turtlebot/turtlebot_setup/update_turtlebot.sh
+# Nooit eindeloos "bezig": een image-pull van enkele GB over een trage
+# uplink past ruim in 30 min; daarna stopt systemd de update (failed).
+TimeoutStartSec=30min
+# Laatste resultaat blijft zichtbaar (statuspagina); herstarten met
+# RestartUnit / systemctl restart turtlebot-update
+RemainAfterExit=yes

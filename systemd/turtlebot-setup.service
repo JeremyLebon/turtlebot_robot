@@ -1,0 +1,14 @@
+[Unit]
+Description=Turtlebot per-robot config (hostname, wifi, .env, container) from MAC address
+# Geen network-online.target: op een verse kloon bestaat het juiste
+# wifi-profiel nog niet, dat maakt dit script net aan.
+After=NetworkManager.service docker.service avahi-daemon.service
+Wants=NetworkManager.service docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/turtlebot/turtlebot_setup/setup_turtlebot.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
