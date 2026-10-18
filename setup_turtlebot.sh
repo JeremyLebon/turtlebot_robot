@@ -101,53 +101,72 @@ fi
 # Profielen van andere robots (bv. TB-AP-09 op een kloon van turtlebot09)
 # worden verwijderd.
 #
-# Het wifi-wachtwoord staat NIET in deze (publieke) repo. Het staat lokaal op
-# de robot in state/wifi_psk (buiten git) en dient ook als wachtwoord van de
-# webterminal (TERMINAL_PASSWORD in .env). Bron, in volgorde:
-#   1. state/wifi_psk (al aanwezig)
-#   2. /boot/firmware/turtlebot_wifi_psk - na het flashen/klonen van een kaart
-#      op de laptop aanmaken (sdclone.sh write). Twee vormen:
-#        - één regel: het wachtwoord van deze robot;
-#        - een lijst voor alle robots, één regel per robot: <nr>=<wachtwoord>
-#          (bv. 6=...; spaties rond "=" en op het einde tellen niet); de
-#          robot neemt de regel met zijn eigen nummer.
-#          Zo werkt één kaart in gelijk welke robot.
-#      Het bestand wordt altijd overschreven en gewist (geen wachtwoorden
-#      van andere robots op deze robot).
-#   3. het bestaande wifi-profiel TB-AP-<nr> van deze robot
+# Wachtwoorden staan NIET in deze (publieke) repo, enkel lokaal op de robot
+# (buiten git, enkel leesbaar voor root):
+#   state/wifi_psk           wifi-wachtwoord van TB-AP-<nr>
+#   state/terminal_password  webterminal (ttyd, :7681), enkel voor de docent;
+#                            bewust NIET het wifi-wachtwoord (dat kent elke
+#                            student). Zonder: webterminal uit.
+# Bron: /boot/firmware/turtlebot_wifi_psk, na het flashen/klonen van een kaart
+# op de laptop aangemaakt (sdclone.sh write). Inhoud, één van:
+#   - één regel: het wifi-wachtwoord van deze robot;
+#   - een lijst, één regel per robot: <nr>=<wachtwoord> (bv. 6=...; spaties
+#     rond "=" en op het einde tellen niet). De robot neemt de regel met zijn
+#     eigen nummer: één kaart werkt in gelijk welke robot.
+#   - (in beide vormen) terminal=<wachtwoord>: het webterminal-wachtwoord.
+# Het bestand wordt altijd overschreven en gewist (geen wachtwoorden van
+# andere robots op deze robot). Zonder bestand: wat al in state/ staat, en
+# anders het wifi-wachtwoord uit het bestaande profiel TB-AP-<nr>.
 AP_NAME="TB-AP-$NR2"
 PSK_FILE="$SETUP_DIR/state/wifi_psk"
+TERM_FILE="$SETUP_DIR/state/terminal_password"
 BOOT_PSK=/boot/firmware/turtlebot_wifi_psk
 mkdir -p "$SETUP_DIR/state"
 if [ -s "$BOOT_PSK" ]; then
-  if grep -qE '^[[:space:]]*[0-9]+[[:space:]]*=' "$BOOT_PSK"; then
+  BOOT_TXT=$(tr -d '\r' < "$BOOT_PSK")
+  shred -u "$BOOT_PSK" 2>/dev/null || rm -f "$BOOT_PSK"
+  # terminal=<wachtwoord>
+  BOOT_VAL=$(sed -nE 's/^[[:space:]]*terminal[[:space:]]*=[[:space:]]*//p' <<< "$BOOT_TXT" \
+    | head -n 1 | sed -E 's/[[:space:]]+$//')
+  if [ -n "$BOOT_VAL" ]; then
+    (umask 077; printf '%s' "$BOOT_VAL" > "$TERM_FILE") \
+      && echo "🔑 Webterminal-wachtwoord overgenomen uit $BOOT_PSK"
+  fi
+  BOOT_TXT=$(grep -vE '^[[:space:]]*(terminal[[:space:]]*=|#|$)' <<< "$BOOT_TXT" || true)
+  BOOT_VAL=""
+  if grep -qE '^[[:space:]]*[0-9]+[[:space:]]*=' <<< "$BOOT_TXT"; then
     # Lijst: regel "<nr>=<wachtwoord>" van deze robot (01 = 1)
-    BOOT_VAL=$(tr -d '\r' < "$BOOT_PSK" | awk -v nr="$NR" '
+    BOOT_VAL=$(awk -v nr="$NR" '
       match($0, /^[[:space:]]*[0-9]+[[:space:]]*=[[:space:]]*/) {
         n = substr($0, 1, index($0, "=") - 1); gsub(/[[:space:]]/, "", n)
         v = substr($0, RLENGTH + 1); sub(/[[:space:]]+$/, "", v)
         if (n + 0 == nr + 0) { print v; exit }
-      }')
-    BOOT_SRC="de lijst in $BOOT_PSK (regel $NR)"
-  else
-    BOOT_VAL=$(head -n 1 "$BOOT_PSK" | tr -d '\r\n')
-    BOOT_SRC="$BOOT_PSK"
+      }' <<< "$BOOT_TXT")
+    [ -n "$BOOT_VAL" ] || echo "⚠️ Geen wifi-wachtwoord voor robot $NR in de lijst ($BOOT_PSK, gewist)"
+  elif [ -n "$BOOT_TXT" ]; then
+    BOOT_VAL=$(head -n 1 <<< "$BOOT_TXT")
   fi
-  shred -u "$BOOT_PSK" 2>/dev/null || rm -f "$BOOT_PSK"
   if [ -n "$BOOT_VAL" ]; then
-    (umask 077; printf '%s' "$BOOT_VAL" > "$PSK_FILE") && echo "🔑 Wifi-wachtwoord overgenomen uit $BOOT_SRC"
-  else
-    echo "⚠️ Geen wachtwoord voor robot $NR in $BOOT_PSK (bestand gewist)"
+    (umask 077; printf '%s' "$BOOT_VAL" > "$PSK_FILE") \
+      && echo "🔑 Wifi-wachtwoord overgenomen uit $BOOT_PSK"
   fi
-  unset BOOT_VAL
+  unset BOOT_TXT BOOT_VAL
 fi
 if [ ! -s "$PSK_FILE" ] && nmcli -t -f NAME connection show | grep -qx "$AP_NAME"; then
   nmcli -s -g 802-11-wireless-security.psk connection show "$AP_NAME" 2>/dev/null \
     | tr -d '\r\n' > "$PSK_FILE"
   [ -s "$PSK_FILE" ] && echo "🔑 Wifi-wachtwoord overgenomen uit het profiel $AP_NAME"
 fi
-chmod 600 "$PSK_FILE" 2>/dev/null
+chmod 600 "$PSK_FILE" "$TERM_FILE" 2>/dev/null
 AP_PSK=$(cat "$PSK_FILE" 2>/dev/null)
+TERMINAL_PASSWORD=$(cat "$TERM_FILE" 2>/dev/null)
+# In .env tussen enkele aanhalingstekens: docker compose vult dan niets in
+# ($ blijft $). Een ' zelf kan daardoor niet in het wachtwoord.
+if [[ $TERMINAL_PASSWORD == *"'"* ]]; then
+  echo "⚠️ Webterminal-wachtwoord bevat een ' - niet toegelaten, webterminal blijft uit"
+  TERMINAL_PASSWORD=""
+fi
+[ -n "$TERMINAL_PASSWORD" ] || echo "ℹ️ Geen webterminal-wachtwoord ($TERM_FILE): webterminal (:7681) blijft uit"
 
 for con in $(nmcli -t -f NAME connection show | grep '^TB-AP-'); do
   if [ "$con" != "$AP_NAME" ]; then
@@ -352,7 +371,7 @@ ROS_DOMAIN_ID=$ROS_DOMAIN_ID
 LDS_MODEL=$LIDAR
 ENABLE_CAMERA=$CAMERA
 MONITOR_URL=$MONITOR_URL
-TERMINAL_PASSWORD=$AP_PSK"
+TERMINAL_PASSWORD='$TERMINAL_PASSWORD'"
 
 cat > /etc/profile.d/turtlebot_config.sh <<EOF
 export TURTLEBOT_NR=$NR

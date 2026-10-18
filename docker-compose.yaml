@@ -23,8 +23,9 @@ services:
       - TURTLEBOT3_MODEL=burger
       - TURTLEBOT3_NAME=TB3_${TURTLEBOT_NR}
       - TURTLEBOT_NR=${TURTLEBOT_NR}
-      # Webterminal (ttyd, terminal_start.sh): zelfde wachtwoord als de wifi
-      # van deze robot, uit state/wifi_psk via .env (niet in git).
+      # Webterminal (ttyd, terminal_start.sh), enkel voor de docent: eigen
+      # wachtwoord uit state/terminal_password via .env (niet in git). Leeg:
+      # webterminal uit.
       - TERMINAL_PASSWORD=${TERMINAL_PASSWORD:-}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       # Not every turtlebot has a CSI camera attached at all times - set to

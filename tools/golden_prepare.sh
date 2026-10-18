@@ -44,7 +44,8 @@ echo "🏷️  $STAMP"
 # op elke kloon zelf.
 rm -f /home/turtlebot/.bash_history /root/.bash_history
 rm -f "$SETUP_DIR"/state/camera_enabled "$SETUP_DIR"/state/container_starts
-# Wifi-/terminalwachtwoord van deze robot hoort niet op de kloon van een andere.
+# Wifi-wachtwoord van deze robot hoort niet op de kloon van een andere.
+# state/terminal_password blijft: dat is op elke robot hetzelfde (docent).
 rm -f "$SETUP_DIR"/state/wifi_psk
 rm -rf /tmp/* 2>/dev/null || true
 # Studentencode van de bouwrobot niet meeklonen (lege workspace laten staan)
