@@ -50,8 +50,18 @@ IMAGE_REF=$(docker compose --project-directory "$SETUP_DIR" config --images | he
 OLD_ID=$(docker image inspect -f '{{.Id}}' "$IMAGE_REF" 2>/dev/null || true)
 
 status "⬇️ Nieuwe image ophalen (docker compose pull, kan enkele minuten duren)"
-docker compose --project-directory "$SETUP_DIR" pull \
-  || fail "docker compose pull mislukt - details: journalctl -u turtlebot-update"
+# Met voortgang (MB en lagen) op de statuspagina, zie pull_progress.py;
+# zonder JSON-voortgang (oudere compose) gewoon zonder.
+if docker compose --progress json version >/dev/null 2>&1 && [ -f "$SETUP_DIR/pull_progress.py" ]; then
+  set -o pipefail
+  docker compose --project-directory "$SETUP_DIR" --progress json pull 2>&1 \
+    | python3 "$SETUP_DIR/pull_progress.py" "$STATUS_FILE" \
+    || fail "docker compose pull mislukt - details: journalctl -u turtlebot-update"
+  set +o pipefail
+else
+  docker compose --project-directory "$SETUP_DIR" pull \
+    || fail "docker compose pull mislukt - details: journalctl -u turtlebot-update"
+fi
 
 NEW_ID=$(docker image inspect -f '{{.Id}}' "$IMAGE_REF" 2>/dev/null || true)
 if [ -n "$OLD_ID" ] && [ "$OLD_ID" != "$NEW_ID" ]; then
