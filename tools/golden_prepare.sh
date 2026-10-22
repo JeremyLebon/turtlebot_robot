@@ -47,6 +47,13 @@ rm -f "$SETUP_DIR"/state/camera_enabled "$SETUP_DIR"/state/container_starts
 # Wifi-wachtwoord van deze robot hoort niet op de kloon van een andere.
 # state/terminal_password blijft: dat is op elke robot hetzelfde (docent).
 rm -f "$SETUP_DIR"/state/wifi_psk
+# Tailscale (tools/tailscale_setup.sh): elke kloon zou anders als deze
+# robot in het tailnet verschijnen - afmelden, identiteit weg
+if command -v tailscale >/dev/null; then
+  tailscale logout 2>/dev/null || true
+  systemctl stop tailscaled 2>/dev/null || true
+  rm -f /var/lib/tailscale/tailscaled.state
+fi
 rm -rf /tmp/* 2>/dev/null || true
 # Studentencode van de bouwrobot niet meeklonen (lege workspace laten staan)
 rm -rf "$SETUP_DIR"/ros2_ws && runuser -u turtlebot -- mkdir -p "$SETUP_DIR"/ros2_ws/src
