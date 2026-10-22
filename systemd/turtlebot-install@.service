@@ -1,0 +1,13 @@
+[Unit]
+Description=Turtlebot: vaste image-versie %i installeren
+# Gestart vanaf de statuspagina (Beheer > Software > Versie kiezen,
+# launch_control_node -> systemd via D-Bus) of met de hand:
+#   sudo systemctl start turtlebot-install@v0.20.0
+# Log: journalctl -u 'turtlebot-install@*'
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/turtlebot/turtlebot_setup/install_version.sh %i
+TimeoutStartSec=30min

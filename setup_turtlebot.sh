@@ -228,6 +228,7 @@ install_if_changed() {  # bron doel modus
 }
 UNITS_CHANGED=false
 for unit in turtlebot-setup.service turtlebot-update.service turtlebot-rollback.service \
+            turtlebot-install@.service \
             turtlebot-usb-power@.service; do
   install_if_changed "$SETUP_DIR/systemd/$unit" "/etc/systemd/system/$unit" 644 \
     && UNITS_CHANGED=true
