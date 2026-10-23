@@ -367,11 +367,20 @@ write_host_info
 # Fleet monitor op de laptop van de docent (monitor/monitor.py): adres voor
 # alle robots samen in monitor.conf (MONITOR_URL=...), leeg = uit.
 MONITOR_URL=$(sed -n 's/^MONITOR_URL=//p' "$SETUP_DIR/monitor.conf" 2>/dev/null | tr -d '[:space:]' | tail -1)
+# Updatekanaal: state/image_channel (ook /root/turtlebot_state in de container).
+# "jazzy" = tag :jazzy, anders :raspios-zenoh. Software bijwerken, Versie kiezen
+# en Terug naar vorige versie volgen dit via docker-compose.yaml (TURTLEBOT_IMAGE).
+CHANNEL=$(tr -dc 'a-z0-9-' < "$SETUP_DIR/state/image_channel" 2>/dev/null)
+case "$CHANNEL" in
+  jazzy) TURTLEBOT_IMAGE=nobel86/turtlebot-rpi5:jazzy ;;
+  *)     TURTLEBOT_IMAGE=nobel86/turtlebot-rpi5:raspios-zenoh ;;
+esac
 ENV_CONTENT="TURTLEBOT_NR=$NR
 ROS_DOMAIN_ID=$ROS_DOMAIN_ID
 LDS_MODEL=$LIDAR
 ENABLE_CAMERA=$CAMERA
 MONITOR_URL=$MONITOR_URL
+TURTLEBOT_IMAGE=$TURTLEBOT_IMAGE
 TERMINAL_PASSWORD='$TERMINAL_PASSWORD'"
 
 cat > /etc/profile.d/turtlebot_config.sh <<EOF
@@ -424,7 +433,11 @@ fi
 # Enkel na een gewijzigde .env (bv. eerste boot van een kloon, die nog de
 # container van de originele robot heeft). Anders zorgt
 # restart: unless-stopped er zelf voor.
-if [ -f "$STATE_DIR/compose-pending" ] && [ -f "$SETUP_DIR/docker-compose.yaml" ]; then
+# Tijdens Software bijwerken (TB_UPDATE=1) niet: update_turtlebot.sh haalt de
+# image zelf op (met voortgang) en doet daarna compose up.
+if [ "${TB_UPDATE:-}" = 1 ]; then
+  rm -f "$STATE_DIR/compose-pending"
+elif [ -f "$STATE_DIR/compose-pending" ] && [ -f "$SETUP_DIR/docker-compose.yaml" ]; then
   # Container(s) met een ander nummer (kloon van een andere robot) of uit een
   # andere compose-map (bv. het oude ~/turtlebot_setup_test) opruimen
   for c in $(docker ps -a --format '{{.Names}}' | grep '^turtlebot_[0-9]*$'); do

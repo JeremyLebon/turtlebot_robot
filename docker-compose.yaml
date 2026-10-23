@@ -4,7 +4,9 @@ services:
     # services (Zenoh, status page, ...) start from the image's entrypoint
     # (services_start.sh), so a restarted container is fully functional.
     restart: unless-stopped
-    image: nobel86/turtlebot-rpi5:raspios-zenoh  # Combined RPi OS + Zenoh test image - keep :latest/:raspios/:zenoh untouched until validated
+    # Updatekanaal per robot (setup_turtlebot.sh, state/image_channel): standaard
+    # :raspios-zenoh, met "jazzy" de tag :jazzy (testrobot voor de overschakeling)
+    image: ${TURTLEBOT_IMAGE:-nobel86/turtlebot-rpi5:raspios-zenoh}
     network_mode: host
     stdin_open: true
     tty: true  

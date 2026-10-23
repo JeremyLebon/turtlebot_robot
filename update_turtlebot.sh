@@ -42,12 +42,16 @@ timeout 120 runuser -u "$SETUP_USER" -- git -C "$SETUP_DIR" pull --ff-only \
 
 # Setup opnieuw (nieuwe CSV/units/.env uit de pull toepassen)
 status "⚙️ Setup toepassen"
-"$SETUP_DIR/setup_turtlebot.sh" || fail "setup_turtlebot.sh mislukt - details: journalctl -u turtlebot-update"
+TB_UPDATE=1 "$SETUP_DIR/setup_turtlebot.sh" || fail "setup_turtlebot.sh mislukt - details: journalctl -u turtlebot-update"
 
 # Huidige image onthouden: na de pull wordt ze :vorige (terugschakelen met
 # rollback_turtlebot.sh, ook zonder internet)
 IMAGE_REF=$(docker compose --project-directory "$SETUP_DIR" config --images | head -1)
-OLD_ID=$(docker image inspect -f '{{.Id}}' "$IMAGE_REF" 2>/dev/null || true)
+# De image van de draaiende container: na een wissel van updatekanaal bestaat
+# IMAGE_REF (bv. :jazzy) lokaal nog niet
+CID=$(docker compose --project-directory "$SETUP_DIR" ps -q 2>/dev/null | head -1)
+OLD_ID=$( { [ -n "$CID" ] && docker inspect -f '{{.Image}}' "$CID"; } 2>/dev/null \
+          || docker image inspect -f '{{.Id}}' "$IMAGE_REF" 2>/dev/null || true)
 
 status "⬇️ Nieuwe image ophalen (docker compose pull, kan enkele minuten duren)"
 # Met voortgang (MB en lagen) op de statuspagina, zie pull_progress.py;
