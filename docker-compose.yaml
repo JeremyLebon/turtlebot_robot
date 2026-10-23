@@ -13,9 +13,6 @@ services:
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=${XAUTH}
       - RMW_IMPLEMENTATION=rmw_zenoh_cpp
-      # Fallback middleware, kept for reference / easy rollback:
-      #   RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - CYCLONEDDS_URI=file:///root/turtlebot3_ws/cylconedds_config.xml
       # Zenoh router (started via zenoh_start_router.sh in the image) listens
       # on tcp/0.0.0.0:7447. network_mode: host already exposes it on the
       # robot's IP (e.g. its AP address 10.42.0.1) - no extra ports: needed.
